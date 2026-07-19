@@ -29,19 +29,22 @@
 
 # 启动
 ./gradlew run
-```
 
-### 打包独立应用
+# GraalVM Native Image AOT 编译（生成独立原生可执行文件）
+./gradlew nativeCompile
+# 产物: ./sqlui (约 75MB，无需 JVM)
 
-```bash
-# 方式一：独立分发包（JVM 模式，build/install/sqlui/）
-./gradlew installDist
-
-# 方式二：macOS .app 应用包（自带 JVM，build/jpackage/SQLui.app）
+# 或使用 jpackage 创建 .app 应用包
 ./gradlew jpackageApp
+# 产物: build/jpackage/SQLui.app
 ```
 
-> **注意**：由于 JDK 25 + JavaFX 26 暂时不被 GraalVM Native Image 完整支持（`JavaFXFeature` 与 JavaFX 26 存在兼容性问题），目前使用 `jpackage` 创建自带 JVM 的独立应用作为替代方案。待 GraalVM 原生镜像工具更新后，可重新启用 AOT 编译。
+> **Native Image 编译要求**：GraalVM JDK 22（`GRAALVM_HOME` 指向 GraalVM 22.0.1+）。
+> 推荐使用 [SDKMAN](https://sdkman.io) 安装：
+> ```bash
+> sdk install java 22.0.1-graal
+> ```
+> 注意：Liberica NIK 25 的 `JavaFXFeature` 存在兼容性 bug，原生编译需使用 GraalVM 22。
 
 ### 使用
 

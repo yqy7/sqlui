@@ -23,23 +23,23 @@ javafx {
 }
 
 dependencies {
-    // Database drivers
     implementation("com.h2database:h2:2.4.240")
     implementation("org.xerial:sqlite-jdbc:3.53.2.0")
-
-    // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.1")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-javafx:1.10.1")
-
-    // RichTextFX for SQL syntax highlighting
     implementation("org.fxmisc.richtext:richtextfx:0.11.7")
-
     testImplementation(kotlin("test"))
+}
+
+// JVM 22 兼容 GraalVM 22.0.1 的 native-image
+java {
+    sourceCompatibility = JavaVersion.VERSION_22
+    targetCompatibility = JavaVersion.VERSION_22
 }
 
 kotlin {
     compilerOptions {
-        jvmTarget.set(JvmTarget.JVM_25)
+        jvmTarget.set(JvmTarget.JVM_22)
     }
 }
 
@@ -54,10 +54,33 @@ tasks.test {
     useJUnitPlatform()
 }
 
-// ===== jpackage: 创建自带 JVM 的独立 .app 应用 =====
+// ===== GraalVM Native Image (AOT 编译) =====
+// 使用 GraalVM 22.0.1 的 native-image（JDK 25 Liberica NIK 的 JavaFXFeature 有 bug）
+val graalvmHome: String = System.getenv("GRAALVM_HOME")
+    ?: project.findProperty("graalvmHome") as String?
+    ?: "/Users/yqy/.sdkman/candidates/java/22.0.1-graal"
+
+tasks.register<Exec>("nativeCompile") {
+    dependsOn(tasks.installDist)
+    description = "使用 GraalVM Native Image 编译为原生可执行文件"
+
+    val libDir = layout.buildDirectory.dir("install/sqlui/lib").get().asFile.absolutePath
+    val classpath = fileTree(libDir).files.joinToString(":") { it.absolutePath }
+
+    commandLine(
+        "$graalvmHome/bin/native-image",
+        "--no-fallback",
+        "-cp", classpath,
+        "-H:+ReportExceptionStackTraces",
+        "-H:Name=sqlui",
+        "io.github.yqy7.sqlui.AppKt"
+    )
+}
+
+// ===== jpackage 备用方案 =====
 tasks.register<Exec>("jpackageApp") {
     dependsOn(tasks.build)
-    description = "使用 jpackage 创建独立应用（自带完整 JVM，约 300MB）"
+    description = "使用 jpackage 创建独立 .app 应用（自带 JVM，备用）"
 
     val jvmArgs = listOf(
         "--add-opens", "javafx.graphics/com.sun.javafx.application=ALL-UNNAMED"

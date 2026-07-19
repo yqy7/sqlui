@@ -12,9 +12,12 @@ SQLui — 基于 Kotlin + JavaFX 的桌面数据库管理工具，支持 H2 Data
 ./gradlew build          # 编译
 ./gradlew run            # 启动应用
 ./gradlew clean build    # 清理编译
-./gradlew installDist    # 独立分发包 → build/install/sqlui/
-./gradlew jpackageApp    # macOS .app → build/jpackage/SQLui.app/
+./gradlew nativeCompile  # AOT 原生编译 → ./sqlui (需 GraalVM 22)
+./gradlew jpackageApp    # .app 打包 → build/jpackage/SQLui.app
 ```
+
+**Native Image**: 编译用 JDK 25（target JVM 22），AOT 用 GraalVM 22.0.1。
+Liberica NIK 25 的 JavaFXFeature 有 bug，原生编译需设 `GRAALVM_HOME` 指向 GraalVM 22。
 
 ## 技术栈
 

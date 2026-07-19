@@ -44,4 +44,8 @@ bin/
 ### Mac OS ###
 .DS_Store
 
+### GraalVM Native Image ###
+sqlui
+sqlui.build_artifacts.txt
+
 .idea/
