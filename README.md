@@ -27,20 +27,21 @@
 # 编译
 ./gradlew build
 
-# 启动（JVM 模式）
+# 启动
 ./gradlew run
-
-# GraalVM Native Image 编译（AOT，生成独立可执行文件）
-./gradlew nativeCompile
-
-# 运行原生镜像
-./build/native/nativeCompile/sqlui
 ```
 
-> **GraalVM Native Image** 要求安装 GraalVM JDK 25+。可通过 [SDKMAN](https://sdkman.io) 安装：
-> ```bash
-> sdk install java 25-graal
-> ```
+### 打包独立应用
+
+```bash
+# 方式一：独立分发包（JVM 模式，build/install/sqlui/）
+./gradlew installDist
+
+# 方式二：macOS .app 应用包（自带 JVM，build/jpackage/SQLui.app）
+./gradlew jpackageApp
+```
+
+> **注意**：由于 JDK 25 + JavaFX 26 暂时不被 GraalVM Native Image 完整支持（`JavaFXFeature` 与 JavaFX 26 存在兼容性问题），目前使用 `jpackage` 创建自带 JVM 的独立应用作为替代方案。待 GraalVM 原生镜像工具更新后，可重新启用 AOT 编译。
 
 ### 使用
 
