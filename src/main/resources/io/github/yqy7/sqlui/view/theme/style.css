@@ -1,0 +1,142 @@
+/* ===== SQLui 全局样式 ===== */
+
+.root {
+    -fx-font-family: "SF Mono", "JetBrains Mono", "Fira Code", "Consolas", monospace;
+    -fx-font-size: 13px;
+    -fx-background-color: #fafafa;
+}
+
+/* ===== 菜单栏 ===== */
+.menu-bar {
+    -fx-background-color: #f0f0f0;
+}
+
+/* ===== 工具栏 ===== */
+.tool-bar {
+    -fx-background-color: #f5f5f5;
+    -fx-border-color: #ddd;
+    -fx-border-width: 0 0 1 0;
+    -fx-padding: 4 8 4 8;
+}
+
+/* ===== 状态栏 ===== */
+.status-bar {
+    -fx-background-color: #f0f0f0;
+    -fx-border-color: #ddd;
+    -fx-border-width: 1 0 0 0;
+    -fx-padding: 2 12 2 12;
+    -fx-font-size: 12px;
+}
+
+/* ===== 区域标题 ===== */
+.section-title {
+    -fx-font-weight: bold;
+    -fx-font-size: 13px;
+    -fx-padding: 4 8 2 8;
+    -fx-text-fill: #555;
+}
+
+/* ===== 执行按钮 ===== */
+.execute-btn {
+    -fx-background-color: #4CAF50;
+    -fx-text-fill: white;
+    -fx-font-weight: bold;
+}
+
+.execute-btn:hover {
+    -fx-background-color: #45a049;
+}
+
+/* ===== 树视图 ===== */
+.tree-view {
+    -fx-background-color: #fafafa;
+}
+
+/* ===== 表格视图 ===== */
+.table-view {
+    -fx-background-color: white;
+    -fx-border-color: #ddd;
+}
+
+.table-view .column-header {
+    -fx-background-color: #f0f0f0;
+}
+
+/* ===== RichTextFX CodeArea 语法高亮 ===== */
+.code-area {
+    -fx-background-color: #ffffff;
+    -fx-font-family: "SF Mono", "JetBrains Mono", "Fira Code", "Consolas", monospace;
+    -fx-font-size: 14px;
+}
+
+.code-area .text {
+    -fx-fill: #333333;
+}
+
+.code-area .keyword {
+    -fx-fill: #0033b3;
+    -fx-font-weight: bold;
+}
+
+.code-area .string {
+    -fx-fill: #067d17;
+}
+
+.code-area .number {
+    -fx-fill: #1750eb;
+}
+
+.code-area .comment {
+    -fx-fill: #8c8c8c;
+    -fx-font-style: italic;
+}
+
+.code-area .paren {
+    -fx-fill: #cc7832;
+}
+
+.code-area .semicolon {
+    -fx-fill: #cc7832;
+    -fx-font-weight: bold;
+}
+
+/* ===== 分割面板 ===== */
+.split-pane {
+    -fx-background-color: #fafafa;
+}
+
+.split-pane-divider {
+    -fx-background-color: #ddd;
+    -fx-padding: 0 1 0 1;
+}
+
+/* ===== 标签页 ===== */
+.tab-pane .tab-header-area {
+    -fx-padding: 2 0 0 8;
+}
+
+.tab-pane .tab {
+    -fx-background-color: #e8e8e8;
+    -fx-padding: 4 12 4 12;
+}
+
+.tab-pane .tab:selected {
+    -fx-background-color: #ffffff;
+    -fx-border-color: #4CAF50;
+    -fx-border-width: 0 0 2 0;
+}
+
+/* ===== 对话框 ===== */
+.dialog-pane {
+    -fx-background-color: white;
+}
+
+/* ===== 滚动条 ===== */
+.scroll-bar {
+    -fx-background-color: transparent;
+}
+
+.scroll-bar .thumb {
+    -fx-background-color: #c0c0c0;
+    -fx-background-radius: 4;
+}
