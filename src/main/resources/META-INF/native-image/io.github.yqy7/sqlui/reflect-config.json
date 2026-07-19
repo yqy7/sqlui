@@ -1,0 +1,89 @@
+[
+  {
+    "name": "java.sql.Driver",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "org.h2.Driver",
+    "allDeclaredConstructors": true,
+    "allPublicMethods": true
+  },
+  {
+    "name": "org.sqlite.JDBC",
+    "allDeclaredConstructors": true,
+    "allPublicMethods": true
+  },
+  {
+    "name": "com.sun.javafx.tk.quantum.OverlayWarning",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true
+  },
+  {
+    "name": "org.fxmisc.richtext.CodeArea",
+    "allDeclaredConstructors": true,
+    "allPublicMethods": true,
+    "allDeclaredFields": true
+  },
+  {
+    "name": "org.fxmisc.richtext.model.StyleSpans",
+    "allDeclaredMethods": true
+  },
+  {
+    "name": "org.fxmisc.richtext.model.StyleSpansBuilder",
+    "allDeclaredConstructors": true,
+    "allPublicMethods": true
+  },
+  {
+    "name": "org.fxmisc.flowless.VirtualizedScrollPane",
+    "allDeclaredConstructors": true,
+    "allPublicMethods": true
+  },
+  {
+    "name": "org.reactfx.EventStream",
+    "allDeclaredMethods": true
+  },
+  {
+    "name": "io.github.yqy7.sqlui.model.DatabaseType",
+    "allDeclaredConstructors": true,
+    "allPublicMethods": true,
+    "allDeclaredFields": true
+  },
+  {
+    "name": "io.github.yqy7.sqlui.model.ConnectionInfo",
+    "allDeclaredConstructors": true,
+    "allPublicMethods": true
+  },
+  {
+    "name": "io.github.yqy7.sqlui.model.QueryResult",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true
+  },
+  {
+    "name": "io.github.yqy7.sqlui.model.QueryResult$Success",
+    "allDeclaredConstructors": true,
+    "allPublicMethods": true
+  },
+  {
+    "name": "io.github.yqy7.sqlui.model.QueryResult$Error",
+    "allDeclaredConstructors": true,
+    "allPublicMethods": true
+  },
+  {
+    "name": "io.github.yqy7.sqlui.model.QueryResult$UpdateSuccess",
+    "allDeclaredConstructors": true,
+    "allPublicMethods": true
+  },
+  {
+    "name": "io.github.yqy7.sqlui.view.MainWindow",
+    "allDeclaredConstructors": true,
+    "allPublicMethods": true
+  },
+  {
+    "name": "kotlin.coroutines.Continuation",
+    "allDeclaredMethods": true
+  },
+  {
+    "name": "kotlinx.coroutines.BuildersKt",
+    "allPublicMethods": true
+  }
+]

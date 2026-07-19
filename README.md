@@ -27,9 +27,20 @@
 # 编译
 ./gradlew build
 
-# 启动
+# 启动（JVM 模式）
 ./gradlew run
+
+# GraalVM Native Image 编译（AOT，生成独立可执行文件）
+./gradlew nativeCompile
+
+# 运行原生镜像
+./build/native/nativeCompile/sqlui
 ```
+
+> **GraalVM Native Image** 要求安装 GraalVM JDK 25+。可通过 [SDKMAN](https://sdkman.io) 安装：
+> ```bash
+> sdk install java 25-graal
+> ```
 
 ### 使用
 

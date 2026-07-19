@@ -3,6 +3,7 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 plugins {
     kotlin("jvm") version "2.3.21"
     id("org.openjfx.javafxplugin") version "0.1.0"
+    id("org.graalvm.buildtools.native") version "1.1.2"
     application
 }
 
@@ -52,4 +53,28 @@ application {
 
 tasks.test {
     useJUnitPlatform()
+}
+
+// ===== GraalVM Native Image 配置 =====
+graalvmNative {
+    binaries {
+        named("main") {
+            mainClass.set("io.github.yqy7.sqlui.AppKt")
+            imageName.set("sqlui")
+            buildArgs.addAll(
+                "--no-fallback",
+                "-H:+ReportExceptionStackTraces",
+                "-H:+AddAllFileSystemProviders",
+                // JavaFX 模块访问
+                "--add-opens", "java.base/java.lang.reflect=ALL-UNNAMED",
+                "--add-opens", "java.base/java.lang=ALL-UNNAMED",
+                // 允许 incomplete classpath（可选依赖）
+                "--allow-incomplete-classpath",
+                // 包含所有字符集
+                "-H:+AddAllCharsets",
+            )
+            // 包含资源文件
+            resources.autodetect()
+        }
+    }
 }

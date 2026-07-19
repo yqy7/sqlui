@@ -10,9 +10,13 @@ SQLui — 基于 Kotlin + JavaFX 的桌面数据库管理工具，支持 H2 Data
 
 ```bash
 ./gradlew build          # 编译
-./gradlew run            # 启动应用
+./gradlew run            # 启动应用（JVM 模式）
 ./gradlew clean build    # 清理编译
+./gradlew nativeCompile  # GraalVM Native Image 编译（需 GraalVM JDK）
 ```
+
+Native Image 产物位于 `build/native/nativeCompile/sqlui`。
+Native Image 配置文件位于 `src/main/resources/META-INF/native-image/io.github.yqy7/sqlui/`。
 
 ## 技术栈
 
