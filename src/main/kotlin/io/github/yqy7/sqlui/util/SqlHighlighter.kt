@@ -1,95 +1,45 @@
 package io.github.yqy7.sqlui.util
 
-import org.fxmisc.richtext.CodeArea
-import org.fxmisc.richtext.model.StyleSpans
-import org.fxmisc.richtext.model.StyleSpansBuilder
-import java.util.regex.Pattern
+import org.fife.ui.rsyntaxtextarea.RSyntaxTextArea
+import org.fife.ui.rsyntaxtextarea.SyntaxConstants
+import org.fife.ui.rsyntaxtextarea.Theme
 
 /**
- * SQL 语法高亮器 —— 为 RichTextFX CodeArea 配置关键字/字符串/数字/注释着色。
+ * SQL 编辑器配置工具。
+ * 基于 RSyntaxTextArea 提供 SQL 语法高亮、代码折叠、行号显示等功能。
  */
-class SqlHighlighter {
+object SqlHighlighter {
 
-    private val keywords = setOf(
-        "SELECT", "FROM", "WHERE", "AND", "OR", "NOT", "IN", "IS", "NULL",
-        "INSERT", "INTO", "VALUES", "UPDATE", "SET", "DELETE",
-        "CREATE", "ALTER", "DROP", "TABLE", "INDEX", "VIEW", "DATABASE",
-        "JOIN", "INNER", "LEFT", "RIGHT", "OUTER", "CROSS", "ON",
-        "ORDER", "BY", "GROUP", "HAVING", "ASC", "DESC",
-        "LIMIT", "OFFSET", "AS", "DISTINCT", "ALL", "UNION",
-        "COUNT", "SUM", "AVG", "MAX", "MIN",
-        "CASE", "WHEN", "THEN", "ELSE", "END",
-        "LIKE", "BETWEEN", "EXISTS",
-        "PRIMARY", "KEY", "FOREIGN", "REFERENCES", "CONSTRAINT",
-        "DEFAULT", "CHECK", "UNIQUE", "CASCADE",
-        "INTEGER", "INT", "VARCHAR", "TEXT", "BOOLEAN", "BIGINT",
-        "FLOAT", "DOUBLE", "DECIMAL", "DATE", "TIMESTAMP", "BLOB",
-        "AUTO_INCREMENT", "SERIAL", "IDENTITY",
-        "IF", "COMMIT", "ROLLBACK", "BEGIN", "TRANSACTION",
-        "EXPLAIN", "ANALYZE", "VACUUM", "PRAGMA"
-    )
-
-    private val keywordPattern: Pattern = Pattern.compile(
-        "\\b(${keywords.joinToString("|")})\\b",
-        Pattern.CASE_INSENSITIVE
-    )
-    private val stringPattern: Pattern = Pattern.compile("'[^']*'")
-    private val numberPattern: Pattern = Pattern.compile("\\b\\d+(\\.\\d+)?\\b")
-    private val commentPattern: Pattern = Pattern.compile("--[^\n]*")
-    private val blockCommentPattern: Pattern = Pattern.compile("/\\*[\\s\\S]*?\\*/")
-    private val parenPattern: Pattern = Pattern.compile("[()]")
-    private val semicolonPattern: Pattern = Pattern.compile(";")
-
-    private val combinedPattern: Pattern = Pattern.compile(
-        "(?<BLOCKCOMMENT>${blockCommentPattern.pattern()})" +
-            "|(?<COMMENT>${commentPattern.pattern()})" +
-            "|(?<STRING>${stringPattern.pattern()})" +
-            "|(?<KEYWORD>${keywordPattern.pattern()})" +
-            "|(?<NUMBER>${numberPattern.pattern()})" +
-            "|(?<PAREN>${parenPattern.pattern()})" +
-            "|(?<SEMICOLON>${semicolonPattern.pattern()})"
-    )
-
-    /** 将语法高亮应用到指定 CodeArea */
-    fun applyTo(codeArea: CodeArea) {
-        codeArea.multiPlainChanges()
-            .subscribe { _ ->
-                try {
-                    codeArea.setStyleSpans(0, computeHighlighting(codeArea.text))
-                } catch (_: Exception) {
-                    // 忽略高亮异常
-                }
-            }
+    /**
+     * 配置 RSyntaxTextArea 为 SQL 编辑器。
+     * 设置语法样式、行号、代码折叠、制表符宽度等。
+     */
+    fun configure(editor: RSyntaxTextArea) {
+        editor.apply {
+            syntaxEditingStyle = SyntaxConstants.SYNTAX_STYLE_SQL
+            isCodeFoldingEnabled = true
+            isBracketMatchingEnabled = true
+            isAutoIndentEnabled = true
+            closeCurlyBraces = false
+            tabSize = 4
+            lineWrap = false
+            antiAliasingEnabled = true
+            paintTabLines = true
+            highlightCurrentLine = true
+        }
     }
 
-    /** 计算整个文本的 StyleSpans */
-    fun computeHighlighting(text: String): StyleSpans<Collection<String>> {
-        val matcher = combinedPattern.matcher(text)
-        val spansBuilder = StyleSpansBuilder<Collection<String>>()
-        var end = 0
-
-        while (matcher.find()) {
-            // 默认样式文本
-            if (matcher.start() > end) {
-                spansBuilder.add(emptyList<String>(), matcher.start() - end)
-            }
-
-            val styleClass: Collection<String> = when {
-                matcher.group("BLOCKCOMMENT") != null -> listOf("comment")
-                matcher.group("COMMENT") != null -> listOf("comment")
-                matcher.group("STRING") != null -> listOf("string")
-                matcher.group("KEYWORD") != null -> listOf("keyword")
-                matcher.group("NUMBER") != null -> listOf("number")
-                matcher.group("PAREN") != null -> listOf("paren")
-                matcher.group("SEMICOLON") != null -> listOf("semicolon")
-                else -> listOf<String>()
-            }
-
-            spansBuilder.add(styleClass, matcher.end() - matcher.start())
-            end = matcher.end()
+    /**
+     * 应用暗色主题（适配 FlatLaf Dark）。
+     */
+    fun applyDarkTheme(editor: RSyntaxTextArea) {
+        try {
+            val theme = Theme.load(RSyntaxTextArea::class.java.getResourceAsStream(
+                "/org/fife/ui/rsyntaxtextarea/themes/dark.xml"
+            ))
+            theme.apply(editor)
+        } catch (_: Exception) {
+            // 主题加载失败时使用默认样式
         }
-
-        spansBuilder.add(emptyList<String>(), text.length - end)
-        return spansBuilder.create()
     }
 }

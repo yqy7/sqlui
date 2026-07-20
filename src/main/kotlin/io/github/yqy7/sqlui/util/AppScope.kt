@@ -6,7 +6,7 @@ import kotlinx.coroutines.*
  * 全局协程作用域持有者。
  * 使用 SupervisorJob 确保单个协程失败不影响其他协程。
  */
-@OptIn(ExperimentalCoroutinesApi::class)
+@OptIn(ExperimentalCoroutinesApi::class, DelicateCoroutinesApi::class)
 object AppScope {
     private val job = SupervisorJob()
     private val exceptionHandler = CoroutineExceptionHandler { _, e ->

@@ -1,13 +1,11 @@
 package io.github.yqy7.sqlui.viewmodel
 
 import io.github.yqy7.sqlui.model.*
-import io.github.yqy7.sqlui.model.service.DatabaseService
+import io.github.yqy7.sqlui.service.DatabaseService
 import io.github.yqy7.sqlui.util.AppScope
-import javafx.beans.property.SimpleObjectProperty
-import javafx.beans.property.SimpleStringProperty
-import javafx.collections.FXCollections
-import javafx.collections.ObservableList
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 /**
@@ -15,31 +13,35 @@ import kotlinx.coroutines.launch
  */
 class ConnectionViewModel(private val databaseService: DatabaseService) {
 
-    val connectionState = SimpleObjectProperty<UiState<ConnectionInfo>>(UiState.Idle)
-    val currentConnectionName = SimpleStringProperty("未连接")
-    val isConnected = SimpleObjectProperty(false)
+    private val _connectionState = MutableStateFlow<UiState<ConnectionInfo>>(UiState.Idle)
+    val connectionState: StateFlow<UiState<ConnectionInfo>> = _connectionState.asStateFlow()
+
+    private val _currentConnectionName = MutableStateFlow("未连接")
+    val currentConnectionName: StateFlow<String> = _currentConnectionName.asStateFlow()
+
+    private val _isConnected = MutableStateFlow(false)
+    val isConnected: StateFlow<Boolean> = _isConnected.asStateFlow()
 
     /** 最近的连接信息列表（用于快速重连） */
-    val recentConnections: ObservableList<ConnectionInfo> = FXCollections.observableArrayList()
+    private val _recentConnections = MutableStateFlow<List<ConnectionInfo>>(emptyList())
+    val recentConnections: StateFlow<List<ConnectionInfo>> = _recentConnections.asStateFlow()
 
     init {
         // 监听 DatabaseService 的连接状态
         AppScope.scope.launch {
             databaseService.connectionState.collect { state ->
-                javafx.application.Platform.runLater {
-                    connectionState.set(state)
-                    when (state) {
-                        is UiState.Success -> {
-                            currentConnectionName.set(state.data.displayName)
-                            isConnected.set(true)
-                            addToRecent(state.data)
-                        }
-                        is UiState.Idle -> {
-                            currentConnectionName.set("未连接")
-                            isConnected.set(false)
-                        }
-                        else -> {}
+                _connectionState.value = state
+                when (state) {
+                    is UiState.Success -> {
+                        _currentConnectionName.value = state.data.displayName
+                        _isConnected.value = true
+                        addToRecent(state.data)
                     }
+                    is UiState.Idle -> {
+                        _currentConnectionName.value = "未连接"
+                        _isConnected.value = false
+                    }
+                    else -> {}
                 }
             }
         }
@@ -48,9 +50,7 @@ class ConnectionViewModel(private val databaseService: DatabaseService) {
     fun openConnection(info: ConnectionInfo) {
         AppScope.scope.launch {
             val result = databaseService.openConnection(info)
-            javafx.application.Platform.runLater {
-                connectionState.set(result)
-            }
+            _connectionState.value = result
         }
     }
 
@@ -63,17 +63,17 @@ class ConnectionViewModel(private val databaseService: DatabaseService) {
     fun createH2InMemory(name: String = "test") {
         AppScope.scope.launch {
             val result = databaseService.createH2InMemory(name)
-            javafx.application.Platform.runLater {
-                connectionState.set(result)
-            }
+            _connectionState.value = result
         }
     }
 
     private fun addToRecent(info: ConnectionInfo) {
-        recentConnections.removeIf { it.filePath == info.filePath && it.databaseType == info.databaseType }
-        recentConnections.add(0, info)
-        if (recentConnections.size > 10) {
-            recentConnections.removeAt(recentConnections.size - 1)
+        val current = _recentConnections.value.toMutableList()
+        current.removeAll { it.filePath == info.filePath && it.databaseType == info.databaseType }
+        current.add(0, info)
+        if (current.size > 10) {
+            current.removeAt(current.size - 1)
         }
+        _recentConnections.value = current
     }
 }

@@ -2,149 +2,141 @@ package io.github.yqy7.sqlui.view.component
 
 import io.github.yqy7.sqlui.model.ConnectionInfo
 import io.github.yqy7.sqlui.model.DatabaseType
-import io.github.yqy7.sqlui.viewmodel.ConnectionViewModel
-import javafx.geometry.Insets
-import javafx.scene.control.*
-import javafx.scene.layout.GridPane
-import javafx.stage.FileChooser
-import java.io.File
+import java.awt.*
+import javax.swing.*
 
 /**
- * 新建/打开数据库连接对话框。
+ * 数据库连接对话框。
+ * 支持选择 H2（文件/内存模式）或 SQLite 文件。
  */
-class ConnectionDialog(private val viewModel: ConnectionViewModel) : Dialog<ConnectionInfo>() {
+class ConnectionDialog(
+    owner: JFrame,
+    private val onConnect: (ConnectionInfo) -> Unit
+) : JDialog(owner, "新建数据库连接", true) {
 
-    private val dbTypeCombo = ComboBox<DatabaseType>().apply {
-        items.addAll(DatabaseType.entries)
-        selectionModel.selectFirst()
-    }
-
-    private val filePathField = TextField().apply {
-        promptText = "选择或输入数据库文件路径..."
-        prefWidth = 350.0
-    }
-
-    private val dbNameField = TextField().apply {
-        promptText = "数据库名（H2 内存模式）"
-        isDisable = true
-    }
-
-    private val usernameField = TextField().apply {
-        promptText = "用户名（可选）"
-    }
-
-    private val passwordField = PasswordField().apply {
-        promptText = "密码（可选）"
-    }
+    private val typeCombo = JComboBox(DatabaseType.entries.toTypedArray())
+    private val filePathField = JTextField(30)
+    private val browseButton = JButton("浏览...")
+    private val dbNameField = JTextField(15)
+    private val dbNameLabel = JLabel("数据库名:")
+    private val usernameField = JTextField("sa", 15)
+    private val passwordField = JPasswordField(15)
+    private val h2HintLabel = JLabel("留空文件路径，输入数据库名即启用 H2 内存模式")
+    private val sqliteHintLabel = JLabel("选择或输入 .db / .sqlite 文件路径")
 
     init {
-        title = "连接数据库"
-        headerText = "选择数据库类型并指定连接参数"
+        defaultCloseOperation = DISPOSE_ON_CLOSE
+        isResizable = false
 
-        dialogPane.buttonTypes.addAll(ButtonType.OK, ButtonType.CANCEL)
+        val content = JPanel(BorderLayout(10, 10))
+        content.border = BorderFactory.createEmptyBorder(16, 16, 16, 16)
 
-        // 仅当输入有效时才启用 OK 按钮
-        val okButton = dialogPane.lookupButton(ButtonType.OK)
-        okButton.isDisable = true
-
-        buildForm()
-
-        // 类型切换时更新表单状态
-        dbTypeCombo.valueProperty().addListener { _, _, newType ->
-            when (newType) {
-                DatabaseType.H2 -> {
-                    filePathField.isDisable = false
-                    dbNameField.isDisable = true
-                }
-                DatabaseType.SQLITE -> {
-                    filePathField.isDisable = false
-                    dbNameField.isDisable = true
-                }
-            }
-            validateInput()
+        // 表单面板
+        val formPanel = JPanel(GridBagLayout())
+        val gbc = GridBagConstraints().apply {
+            insets = Insets(4, 4, 4, 4)
+            fill = GridBagConstraints.HORIZONTAL
         }
 
-        // 路径变化时校验
-        filePathField.textProperty().addListener { _, _, _ -> validateInput() }
-
-        // 结果转换
-        setResultConverter { buttonType ->
-            if (buttonType == ButtonType.OK) {
-                ConnectionInfo(
-                    databaseType = dbTypeCombo.value,
-                    filePath = filePathField.text.trim(),
-                    databaseName = dbNameField.text.trim(),
-                    username = usernameField.text.trim(),
-                    password = passwordField.text
-                )
-            } else null
-        }
-    }
-
-    private fun buildForm() {
-        val grid = GridPane().apply {
-            hgap = 10.0
-            vgap = 10.0
-            padding = Insets(20.0)
-        }
-
-        // 数据库类型
-        grid.add(Label("数据库类型:"), 0, 0)
-        grid.add(dbTypeCombo, 1, 0)
+        addRow(formPanel, gbc, 0, "数据库类型:", typeCombo)
 
         // 文件路径
-        grid.add(Label("文件路径:"), 0, 1)
-        val fileRow = javafx.scene.layout.HBox(8.0).apply {
-            children.add(filePathField)
-            val browseBtn = Button("浏览...")
-            browseBtn.setOnAction { browseFile() }
-            children.add(browseBtn)
-        }
-        grid.add(fileRow, 1, 1)
+        val filePanel = JPanel(BorderLayout(4, 0))
+        filePanel.add(filePathField, BorderLayout.CENTER)
+        filePanel.add(browseButton, BorderLayout.EAST)
+        addRow(formPanel, gbc, 1, "文件路径:", filePanel)
 
-        // 数据库名（H2 内存）
-        grid.add(Label("数据库名:"), 0, 2)
-        grid.add(dbNameField, 1, 2)
+        addRow(formPanel, gbc, 2, dbNameLabel, dbNameField)
 
-        // 用户名
-        grid.add(Label("用户名:"), 0, 3)
-        grid.add(usernameField, 1, 3)
+        addRow(formPanel, gbc, 3, "用户名:", usernameField)
+        addRow(formPanel, gbc, 4, "密码:", passwordField)
 
-        // 密码
-        grid.add(Label("密码:"), 0, 4)
-        grid.add(passwordField, 1, 4)
+        // 提示标签
+        gbc.gridy = 5
+        gbc.gridx = 0
+        gbc.gridwidth = 2
+        val hintPanel = JPanel(BorderLayout())
+        h2HintLabel.foreground = Color.GRAY
+        h2HintLabel.font = h2HintLabel.font.deriveFont(11f)
+        sqliteHintLabel.foreground = Color.GRAY
+        sqliteHintLabel.font = sqliteHintLabel.font.deriveFont(11f)
+        hintPanel.add(h2HintLabel, BorderLayout.NORTH)
+        hintPanel.add(sqliteHintLabel, BorderLayout.SOUTH)
+        formPanel.add(hintPanel, gbc)
 
-        dialogPane.content = grid
+        content.add(formPanel, BorderLayout.CENTER)
+
+        // 按钮面板
+        val buttonPanel = JPanel(FlowLayout(FlowLayout.RIGHT))
+        buttonPanel.add(JButton("连接").apply { addActionListener { doConnect() } })
+        buttonPanel.add(JButton("取消").apply { addActionListener { dispose() } })
+        content.add(buttonPanel, BorderLayout.SOUTH)
+
+        // 事件
+        typeCombo.addActionListener { updateVisibility() }
+        browseButton.addActionListener { browseFile() }
+        filePathField.document.addDocumentListener(object : javax.swing.event.DocumentListener {
+            override fun insertUpdate(e: javax.swing.event.DocumentEvent?) = updateVisibility()
+            override fun removeUpdate(e: javax.swing.event.DocumentEvent?) = updateVisibility()
+            override fun changedUpdate(e: javax.swing.event.DocumentEvent?) = updateVisibility()
+        })
+
+        contentPane = content
+        updateVisibility()
+        pack()
+        setLocationRelativeTo(owner)
+    }
+
+    private fun addRow(panel: JPanel, gbc: GridBagConstraints, row: Int, label: String, comp: JComponent) {
+        gbc.gridy = row; gbc.gridx = 0; gbc.gridwidth = 1; gbc.weightx = 0.0
+        panel.add(JLabel(label), gbc)
+        gbc.gridx = 1; gbc.weightx = 1.0
+        panel.add(comp, gbc)
+    }
+
+    private fun addRow(panel: JPanel, gbc: GridBagConstraints, row: Int, label: JLabel, comp: JComponent) {
+        gbc.gridy = row; gbc.gridx = 0; gbc.gridwidth = 1; gbc.weightx = 0.0
+        panel.add(label, gbc)
+        gbc.gridx = 1; gbc.weightx = 1.0
+        panel.add(comp, gbc)
+    }
+
+    private fun updateVisibility() {
+        val type = typeCombo.selectedItem as? DatabaseType ?: return
+        val isH2 = type == DatabaseType.H2
+        val filePathBlank = filePathField.text.isBlank()
+
+        dbNameLabel.isVisible = isH2 && filePathBlank
+        dbNameField.isVisible = isH2 && filePathBlank
+        h2HintLabel.isVisible = isH2
+        sqliteHintLabel.isVisible = !isH2
+        usernameField.isEnabled = isH2
+        passwordField.isEnabled = isH2
+
+        pack()
     }
 
     private fun browseFile() {
-        val type = dbTypeCombo.value
-        val chooser = FileChooser().apply {
-            title = "选择${type.displayName}数据库文件"
-            extensionFilters.addAll(
-                when (type) {
-                    DatabaseType.H2 -> FileChooser.ExtensionFilter(
-                        "H2 数据库文件", listOf("*.mv.db", "*.h2.db", "*.db")
-                    )
-                    DatabaseType.SQLITE -> FileChooser.ExtensionFilter(
-                        "SQLite 数据库文件", listOf("*.db", "*.sqlite", "*.sqlite3", "*.s3db")
-                    )
-                },
-                FileChooser.ExtensionFilter("所有文件", listOf("*.*"))
-            )
+        val chooser = JFileChooser().apply {
+            dialogTitle = "选择数据库文件"
+            fileSelectionMode = JFileChooser.FILES_ONLY
         }
-
-        val file = chooser.showOpenDialog(dialogPane.scene.window)
-        if (file != null) {
-            filePathField.text = file.absolutePath
+        if (chooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
+            filePathField.text = chooser.selectedFile.absolutePath
+            updateVisibility()
         }
     }
 
-    private fun validateInput() {
-        dialogPane.lookupButton(ButtonType.OK)?.let { okBtn ->
-            val hasFile = filePathField.text.isNotBlank()
-            val hasDbName = dbNameField.text.isNotBlank()
-            okBtn.isDisable = !hasFile && !hasDbName
-        }
+    private fun doConnect() {
+        val type = typeCombo.selectedItem as? DatabaseType ?: return
+        val info = ConnectionInfo(
+            databaseType = type,
+            filePath = filePathField.text.trim(),
+            databaseName = dbNameField.text.trim(),
+            username = usernameField.text.trim(),
+            password = String(passwordField.password)
+        )
+        onConnect(info)
+        dispose()
     }
 }

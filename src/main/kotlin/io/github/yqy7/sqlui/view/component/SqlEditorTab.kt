@@ -1,154 +1,133 @@
 package io.github.yqy7.sqlui.view.component
 
 import io.github.yqy7.sqlui.model.QueryResult
-import io.github.yqy7.sqlui.model.service.DatabaseService
-import io.github.yqy7.sqlui.util.CsvExporter
+import io.github.yqy7.sqlui.service.DatabaseService
+import io.github.yqy7.sqlui.util.AppScope
+import io.github.yqy7.sqlui.util.SqlHighlighter
+import io.github.yqy7.sqlui.viewmodel.BrowserViewModel
 import io.github.yqy7.sqlui.viewmodel.EditorViewModel
-import javafx.scene.control.*
-import javafx.scene.input.KeyCode
-import javafx.scene.input.KeyCodeCombination
-import javafx.scene.input.KeyCombination
-import javafx.scene.layout.Priority
-import javafx.scene.layout.VBox
-import javafx.stage.FileChooser
-import org.fxmisc.richtext.CodeArea
-import java.io.File
+import kotlinx.coroutines.launch
+import org.fife.ui.rsyntaxtextarea.RSyntaxTextArea
+import org.fife.ui.rtextarea.RTextScrollPane
+import java.awt.BorderLayout
+import java.awt.event.ActionEvent
+import java.awt.event.KeyEvent
+import javax.swing.*
 
 /**
- * 单个 SQL 查询标签页 —— 包含编辑器、工具栏和结果表。
+ * 单个 SQL 查询标签页。
+ * 包含 SQL 编辑器（RSyntaxTextArea）和结果表格（ResultTablePanel）。
+ * 每个标签页持有独立的 EditorViewModel 实例。
  */
 class SqlEditorTab(
     private val databaseService: DatabaseService,
+    private val browserViewModel: BrowserViewModel,
     tabTitle: String = "Query"
-) : Tab(tabTitle) {
+) : JPanel(BorderLayout()) {
 
     val editorViewModel = EditorViewModel(databaseService, tabTitle)
 
-    private val codeArea = CodeArea()
+    private val sqlEditor = RSyntaxTextArea(20, 60).apply {
+        SqlHighlighter.configure(this)
+    }
+    private val editorScrollPane = RTextScrollPane(sqlEditor).apply {
+        lineNumbersEnabled = true
+    }
     private val resultPanel = ResultTablePanel()
 
-    private var syncing = false
-
     init {
-        isClosable = true
-        buildContent()
-
-        // 结果 → 面板
-        editorViewModel.queryResult.addListener { _, _, result ->
-            resultPanel.currentResult.set(result)
+        val splitPane = JSplitPane(JSplitPane.VERTICAL_SPLIT, editorScrollPane, resultPanel).apply {
+            dividerLocation = 280
+            resizeWeight = 0.5
         }
+        add(splitPane, BorderLayout.CENTER)
 
-        // 双向绑定：CodeArea ↔ ViewModel.sqlText
-        codeArea.textProperty().addListener { _, _, newText ->
-            if (!syncing) {
-                syncing = true
-                editorViewModel.sqlText.set(newText)
-                syncing = false
+        // 快捷键：Ctrl+Enter 执行 SQL
+        val inputMap = sqlEditor.getInputMap(JComponent.WHEN_FOCUSED)
+        val actionMap = sqlEditor.getActionMap()
+        val executeKey = "executeSql"
+        inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, KeyEvent.CTRL_DOWN_MASK), executeKey)
+        actionMap.put(executeKey, object : AbstractAction() {
+            override fun actionPerformed(e: ActionEvent?) {
+                executeQuery()
+            }
+        })
+
+        // Ctrl+S 保存 SQL
+        val saveKey = "saveSql"
+        inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_S, KeyEvent.CTRL_DOWN_MASK), saveKey)
+        actionMap.put(saveKey, object : AbstractAction() {
+            override fun actionPerformed(e: ActionEvent?) {
+                saveSqlToFile()
+            }
+        })
+
+        // 编辑器文本变化 → ViewModel
+        sqlEditor.document.addDocumentListener(object : javax.swing.event.DocumentListener {
+            override fun insertUpdate(e: javax.swing.event.DocumentEvent?) = syncTextToViewModel()
+            override fun removeUpdate(e: javax.swing.event.DocumentEvent?) = syncTextToViewModel()
+            override fun changedUpdate(e: javax.swing.event.DocumentEvent?) = syncTextToViewModel()
+        })
+
+        // 监听 ViewModel 状态变化 → 更新 UI
+        AppScope.scope.launch {
+            editorViewModel.queryResult.collect { result ->
+                SwingUtilities.invokeLater {
+                    if (result != null) {
+                        resultPanel.showResult(result)
+                    }
+                }
             }
         }
-        editorViewModel.sqlText.addListener { _, _, newText ->
-            if (!syncing) {
-                syncing = true
-                codeArea.replaceText(newText ?: "")
-                syncing = false
-            }
-        }
-    }
-
-    private fun buildContent() {
-        val container = VBox(4.0)
-
-        // 工具栏
-        val toolBar = buildToolBar()
-
-        // SQL 编辑器
-        val editorBox = VBox(0.0).apply {
-            VBox.setVgrow(codeArea, Priority.ALWAYS)
-            children.add(codeArea)
-            style = "-fx-border-color: #ddd; -fx-border-width: 1;"
-        }
-
-        container.children.addAll(toolBar, editorBox, resultPanel)
-        VBox.setVgrow(editorBox, Priority.ALWAYS)
-
-        content = container
-    }
-
-    private fun buildToolBar(): ToolBar {
-        val bar = ToolBar()
-
-        val executeBtn = Button("▶ 执行")
-        executeBtn.setOnAction { editorViewModel.executeQuery() }
-        executeBtn.styleClass.add("execute-btn")
-
-        val exportBtn = Button("导出 CSV")
-        exportBtn.setOnAction { exportToCsv() }
-
-        val formatBtn = Button("格式化 SQL")
-        formatBtn.setOnAction { formatSql() }
-
-        bar.items.addAll(executeBtn, formatBtn, exportBtn)
-        return bar
-    }
-
-    /** 配置 CodeArea 的语法高亮 */
-    fun configureHighlighting(highlighter: io.github.yqy7.sqlui.util.SqlHighlighter) {
-        highlighter.applyTo(codeArea)
-    }
-
-    /** Ctrl+Enter 执行查询 */
-    fun handleExecuteShortcut() {
-        codeArea.setOnKeyPressed { event ->
-            if (KeyCodeCombination(KeyCode.ENTER, KeyCombination.CONTROL_DOWN).match(event)) {
-                editorViewModel.executeQuery()
-                event.consume()
+        AppScope.scope.launch {
+            editorViewModel.isExecuting.collect { executing ->
+                SwingUtilities.invokeLater {
+                    sqlEditor.isEnabled = !executing
+                }
             }
         }
     }
 
-    private fun exportToCsv() {
-        val result = editorViewModel.queryResult.get()
-        if (result !is QueryResult.Success) {
-            Alert(Alert.AlertType.WARNING, "没有可导出的查询结果").showAndWait()
-            return
-        }
+    /** 执行 SQL 编辑器中的查询 */
+    fun executeQuery() {
+        // 同步编辑器内容到 ViewModel
+        editorViewModel.setSqlText(sqlEditor.text)
+        editorViewModel.executeQuery()
+    }
 
-        val chooser = FileChooser().apply {
-            title = "导出 CSV"
-            initialFileName = "query_result.csv"
-            extensionFilters.add(FileChooser.ExtensionFilter("CSV 文件", listOf("*.csv")))
-        }
+    /** 向编辑器插入表名 */
+    fun insertTableName(tableName: String) {
+        val pos = sqlEditor.caretPosition
+        sqlEditor.insert(tableName, pos)
+        sqlEditor.requestFocusInWindow()
+    }
 
-        val file = chooser.showSaveDialog(tabPane?.scene?.window)
-        if (file != null) {
-            val success = CsvExporter.export(result, file)
-            if (success) {
-                Alert(Alert.AlertType.INFORMATION, "已导出到: ${file.absolutePath}").showAndWait()
-            } else {
-                Alert(Alert.AlertType.ERROR, "导出失败").showAndWait()
-            }
+    /** 在编辑器填入 SELECT 查询 */
+    fun generateSelectQuery(tableName: String) {
+        if (sqlEditor.text.isBlank()) {
+            sqlEditor.text = "SELECT * FROM \"$tableName\" LIMIT 100;"
+            editorViewModel.setSqlText(sqlEditor.text)
         }
     }
 
-    private fun formatSql() {
-        val sql = editorViewModel.sqlText.get()
-        if (sql.isBlank()) return
+    /** 获取标签页标题 */
+    fun getTitle(): String = editorViewModel.tabTitle
 
-        // 简单的格式化：将主要关键字转为大写并在其前换行
-        val keywords = listOf(
-            "SELECT", "FROM", "WHERE", "AND", "OR", "ORDER BY", "GROUP BY",
-            "HAVING", "JOIN", "INNER JOIN", "LEFT JOIN", "RIGHT JOIN",
-            "ON", "INSERT INTO", "VALUES", "UPDATE", "SET", "DELETE FROM",
-            "CREATE TABLE", "ALTER TABLE", "DROP TABLE", "LIMIT", "OFFSET"
-        )
+    private fun syncTextToViewModel() {
+        editorViewModel.setSqlText(sqlEditor.text)
+    }
 
-        var formatted = sql.trim()
-        for (kw in keywords.sortedByDescending { it.length }) {
-            val regex = Regex("\\b${Regex.escape(kw)}\\b", RegexOption.IGNORE_CASE)
-            formatted = formatted.replace(regex) { "\n${kw.uppercase()}" }
+    private fun saveSqlToFile() {
+        val chooser = JFileChooser().apply {
+            dialogTitle = "保存 SQL 文件"
+            selectedFile = java.io.File("query.sql")
         }
-        formatted = formatted.replace(Regex("\n+"), "\n").trimStart('\n')
-
-        editorViewModel.sqlText.set(formatted)
+        if (chooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
+            try {
+                chooser.selectedFile.writeText(sqlEditor.text)
+            } catch (e: Exception) {
+                JOptionPane.showMessageDialog(this, "保存失败: ${e.message}", "错误", JOptionPane.ERROR_MESSAGE)
+            }
+        }
     }
 }

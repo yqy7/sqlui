@@ -10,7 +10,7 @@ object CsvExporter {
 
     /**
      * 导出查询结果到 CSV 文件。
-     * @return 导出成功返回文件路径，失败返回 null
+     * @return 导出成功返回 true，失败返回 false
      */
     fun export(result: QueryResult.Success, file: File): Boolean {
         return try {

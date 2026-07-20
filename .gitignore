@@ -45,7 +45,7 @@ bin/
 .DS_Store
 
 ### GraalVM Native Image ###
-sqlui
-sqlui.build_artifacts.txt
+/sqlui
+/sqlui.build_artifacts.txt
 
 .idea/

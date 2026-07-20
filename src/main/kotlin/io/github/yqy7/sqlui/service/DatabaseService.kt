@@ -1,4 +1,4 @@
-package io.github.yqy7.sqlui.model.service
+package io.github.yqy7.sqlui.service
 
 import io.github.yqy7.sqlui.model.*
 import io.github.yqy7.sqlui.model.provider.*

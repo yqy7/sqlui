@@ -1,73 +1,152 @@
 package io.github.yqy7.sqlui.view.component
 
+import io.github.yqy7.sqlui.model.ColumnInfo
 import io.github.yqy7.sqlui.model.TableInfo
+import io.github.yqy7.sqlui.util.AppScope
 import io.github.yqy7.sqlui.viewmodel.BrowserViewModel
-import javafx.scene.control.TreeItem
-import javafx.scene.control.TreeView
+import kotlinx.coroutines.launch
+import java.awt.BorderLayout
+import java.awt.Component
+import javax.swing.*
+import javax.swing.table.DefaultTableModel
+import javax.swing.tree.DefaultMutableTreeNode
+import javax.swing.tree.DefaultTreeCellRenderer
+import javax.swing.tree.DefaultTreeModel
+import javax.swing.tree.TreeSelectionModel
 
 /**
- * 左侧数据库浏览器 —— TreeView 显示数据库对象树。
- *
- * 结构：
- * - 📁 表 (Tables)
- *   - table_name_1
- *   - table_name_2
- * - 📁 视图 (Views)
- *   - view_name_1
- *
- * 交互：
- * - 单击：显示表结构
- * - 双击：生成 SELECT 查询（通过 [onTableDoubleClick] 回调）
+ * 数据库浏览器面板。
+ * 左侧：JTree 显示表/视图列表，按类型分组。
+ * 下方：JTable 显示选中表的列结构。
  */
-class DatabaseBrowser(private val viewModel: BrowserViewModel) : TreeView<String>() {
+class DatabaseBrowser(
+    private val browserViewModel: BrowserViewModel
+) : JPanel(BorderLayout()) {
 
-    private val rootItem = TreeItem<String>("数据库对象").apply { isExpanded = true }
+    private val rootNode = DefaultMutableTreeNode("数据库")
+    private val tablesNode = DefaultMutableTreeNode("表 (TABLES)")
+    private val viewsNode = DefaultMutableTreeNode("视图 (VIEWS)")
 
-    /** 双击表名时的回调 */
-    var onTableDoubleClick: ((String) -> Unit)? = null
+    private val treeModel = DefaultTreeModel(rootNode)
+    private val tree = JTree(treeModel).apply {
+        getSelectionModel().selectionMode = TreeSelectionModel.SINGLE_TREE_SELECTION
+        isRootVisible = false
+        cellRenderer = BrowserTreeCellRenderer()
+    }
+
+    private val columnTableModel = DefaultTableModel(arrayOf("列名", "类型", "可为空", "主键", "默认值"), 0)
+    private val columnTable = JTable(columnTableModel).apply {
+        autoResizeMode = JTable.AUTO_RESIZE_ALL_COLUMNS
+    }
+
+    private val refreshButton = JButton("刷新")
 
     init {
-        isShowRoot = true
-        root = rootItem
+        rootNode.add(tablesNode)
+        rootNode.add(viewsNode)
+        treeModel.nodeStructureChanged(rootNode)
 
-        // 监听表列表变化，重建树
-        viewModel.tables.addListener { _: javafx.collections.ListChangeListener.Change<out TableInfo>? ->
-            rebuildTree()
+        // 上方：树
+        val treeScroll = JScrollPane(tree)
+        treeScroll.border = BorderFactory.createTitledBorder("数据库对象")
+
+        // 操作栏
+        val toolbar = JToolBar().apply {
+            isFloatable = false
+            add(refreshButton)
         }
 
-        // 单击：显示表结构
-        selectionModel.selectedItemProperty().addListener { _, _, selected ->
-            val tableName = selected?.value
-            if (tableName != null && selected.parent?.value == "表") {
-                viewModel.selectTable(tableName)
+        val topPanel = JPanel(BorderLayout())
+        topPanel.add(toolbar, BorderLayout.NORTH)
+        topPanel.add(treeScroll, BorderLayout.CENTER)
+
+        // 下方：表结构
+        val columnScroll = JScrollPane(columnTable)
+        columnScroll.border = BorderFactory.createTitledBorder("表结构")
+        columnScroll.preferredSize = java.awt.Dimension(260, 180)
+
+        val splitPane = JSplitPane(JSplitPane.VERTICAL_SPLIT, topPanel, columnScroll).apply {
+            dividerLocation = 320
+            resizeWeight = 0.65
+        }
+
+        add(splitPane, BorderLayout.CENTER)
+
+        // 事件
+        refreshButton.addActionListener { browserViewModel.refresh() }
+        tree.addTreeSelectionListener { e ->
+            val node = e.path.lastPathComponent as? DefaultMutableTreeNode ?: return@addTreeSelectionListener
+            val userObj = node.userObject
+            if (userObj is TableInfo) {
+                browserViewModel.selectTable(userObj.name)
             }
         }
 
-        // 双击：生成 SELECT 查询
-        setOnMouseClicked { event ->
-            if (event.clickCount == 2) {
-                val selected = selectionModel.selectedItem
-                val tableName = selected?.value
-                if (tableName != null && selected.parent?.value == "表") {
-                    onTableDoubleClick?.invoke(tableName)
-                }
+        // 监听 ViewModel
+        AppScope.scope.launch {
+            browserViewModel.tables.collect { tables ->
+                SwingUtilities.invokeLater { updateTree(tables) }
+            }
+        }
+        AppScope.scope.launch {
+            browserViewModel.columns.collect { columns ->
+                SwingUtilities.invokeLater { updateColumns(columns) }
             }
         }
     }
 
-    private fun rebuildTree() {
-        val tables = viewModel.tables
-
-        val tablesGroup = TreeItem<String>("表").apply { isExpanded = true }
-        val viewsGroup = TreeItem<String>("视图").apply { isExpanded = true }
+    private fun updateTree(tables: List<TableInfo>) {
+        tablesNode.removeAllChildren()
+        viewsNode.removeAllChildren()
 
         for (table in tables) {
-            when (table.type.uppercase()) {
-                "VIEW" -> viewsGroup.children.add(TreeItem(table.name))
-                else -> tablesGroup.children.add(TreeItem(table.name))
-            }
+            val target = if (table.type.uppercase() == "VIEW") viewsNode else tablesNode
+            target.add(DefaultMutableTreeNode(table))
         }
 
-        rootItem.children.setAll(tablesGroup, viewsGroup)
+        treeModel.nodeStructureChanged(tablesNode)
+        treeModel.nodeStructureChanged(viewsNode)
+
+        // 展开节点
+        tree.expandPath(javax.swing.tree.TreePath(tablesNode.path))
+        tree.expandPath(javax.swing.tree.TreePath(viewsNode.path))
+    }
+
+    private fun updateColumns(columns: List<ColumnInfo>) {
+        columnTableModel.setRowCount(0)
+        for (col in columns) {
+            columnTableModel.addRow(arrayOf(
+                col.name,
+                col.dataType,
+                if (col.nullable) "✓" else "",
+                if (col.isPrimaryKey) "✓" else "",
+                col.defaultValue ?: ""
+            ))
+        }
+    }
+
+    fun getSelectedTableName(): String? {
+        val node = tree.lastSelectedPathComponent as? DefaultMutableTreeNode ?: return null
+        return (node.userObject as? TableInfo)?.name
+    }
+}
+
+/**
+ * 浏览器树节点渲染器：显示表名。
+ */
+private class BrowserTreeCellRenderer : DefaultTreeCellRenderer() {
+    override fun getTreeCellRendererComponent(
+        tree: JTree?, value: Any?, sel: Boolean, expanded: Boolean,
+        leaf: Boolean, row: Int, hasFocus: Boolean
+    ): Component {
+        val comp = super.getTreeCellRendererComponent(tree, value, sel, expanded, leaf, row, hasFocus)
+        if (value is DefaultMutableTreeNode) {
+            val userObj = value.userObject
+            text = when (userObj) {
+                is TableInfo -> userObj.name
+                else -> userObj?.toString() ?: ""
+            }
+        }
+        return comp
     }
 }

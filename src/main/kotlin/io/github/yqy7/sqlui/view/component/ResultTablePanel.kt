@@ -1,68 +1,99 @@
 package io.github.yqy7.sqlui.view.component
 
 import io.github.yqy7.sqlui.model.QueryResult
-import javafx.beans.property.SimpleObjectProperty
-import javafx.scene.control.*
-import javafx.scene.layout.Priority
-import javafx.scene.layout.VBox
+import io.github.yqy7.sqlui.util.CsvExporter
+import java.awt.BorderLayout
+import java.io.File
+import javax.swing.*
+import javax.swing.table.DefaultTableModel
 
 /**
- * 查询结果表格面板 —— 动态列 TableView。
+ * 查询结果表格面板。
+ * 使用 JTable 展示 SELECT 查询结果，支持 CSV 导出。
  */
-class ResultTablePanel : VBox(4.0) {
+class ResultTablePanel : JPanel(BorderLayout()) {
 
-    data class RowData(val values: List<Any?>)
+    private val tableModel = DefaultTableModel()
+    private val table = JTable(tableModel).apply {
+        autoResizeMode = JTable.AUTO_RESIZE_OFF
+        autoCreateRowSorter = true
+        setFillsViewportHeight(true)
+    }
+    private val scrollPane = JScrollPane(table)
+    private val exportButton = JButton("导出 CSV")
 
-    private val tableView = TableView<RowData>()
-    private val infoLabel = Label("")
+    private val infoLabel = JLabel(" ").apply {
+        border = BorderFactory.createEmptyBorder(2, 4, 2, 4)
+    }
 
-    val currentResult = SimpleObjectProperty<QueryResult?>(null)
+    private var currentResult: QueryResult.Success? = null
 
     init {
-        VBox.setVgrow(tableView, Priority.ALWAYS)
-        children.addAll(infoLabel, tableView)
+        val topPanel = JPanel(BorderLayout())
+        topPanel.add(infoLabel, BorderLayout.CENTER)
+        topPanel.add(exportButton, BorderLayout.EAST)
+        add(topPanel, BorderLayout.NORTH)
+        add(scrollPane, BorderLayout.CENTER)
 
-        tableView.columnResizePolicy = TableView.UNCONSTRAINED_RESIZE_POLICY
-
-        currentResult.addListener { _, _, result ->
-            displayResult(result)
-        }
+        exportButton.isEnabled = false
+        exportButton.addActionListener { exportCsv() }
     }
 
-    private fun displayResult(result: QueryResult?) {
-        tableView.columns.clear()
-        tableView.items.clear()
-
+    /** 显示查询结果 */
+    fun showResult(result: QueryResult) {
         when (result) {
-            is QueryResult.Success -> {
-                infoLabel.text = "${result.rowCount} 行, ${result.executionTimeMs}ms"
-                buildDynamicColumns(result.columns)
-                val rowDataList = result.rows.map { RowData(it) }
-                tableView.items.addAll(rowDataList)
-            }
-            is QueryResult.UpdateSuccess -> {
-                infoLabel.text = "已更新 ${result.affectedRows} 行, ${result.executionTimeMs}ms"
-            }
-            is QueryResult.Error -> {
-                infoLabel.text = "错误: ${result.message}"
-                infoLabel.style = "-fx-text-fill: red;"
-            }
-            null -> {
-                infoLabel.text = ""
-            }
+            is QueryResult.Success -> showSuccessResult(result)
+            is QueryResult.UpdateSuccess -> showUpdateResult(result)
+            is QueryResult.Error -> showErrorResult(result)
+            else -> clear()
         }
     }
 
-    private fun buildDynamicColumns(columns: List<String>) {
-        for ((index, colName) in columns.withIndex()) {
-            val col = TableColumn<RowData, String>(colName)
-            col.setCellValueFactory { cellData ->
-                val row = cellData.value
-                val value = row.values.getOrNull(index)
-                javafx.beans.property.SimpleStringProperty(value?.toString() ?: "NULL")
+    private fun showSuccessResult(result: QueryResult.Success) {
+        currentResult = result
+        tableModel.setDataVector(
+            result.rows.map { it.toTypedArray() }.toTypedArray(),
+            result.columns.toTypedArray()
+        )
+        infoLabel.text = " ${result.rowCount} 行, 耗时 ${result.executionTimeMs}ms"
+        exportButton.isEnabled = result.rows.isNotEmpty()
+    }
+
+    private fun showUpdateResult(result: QueryResult.UpdateSuccess) {
+        currentResult = null
+        tableModel.setDataVector(emptyArray(), emptyArray())
+        infoLabel.text = " 影响了 ${result.affectedRows} 行, 耗时 ${result.executionTimeMs}ms"
+        exportButton.isEnabled = false
+    }
+
+    private fun showErrorResult(result: QueryResult.Error) {
+        currentResult = null
+        tableModel.setDataVector(emptyArray(), emptyArray())
+        infoLabel.text = " 错误: ${result.message}"
+        exportButton.isEnabled = false
+    }
+
+    fun clear() {
+        currentResult = null
+        tableModel.setDataVector(emptyArray(), emptyArray())
+        infoLabel.text = " "
+        exportButton.isEnabled = false
+    }
+
+    private fun exportCsv() {
+        val data = currentResult ?: return
+        val chooser = JFileChooser().apply {
+            dialogTitle = "导出 CSV"
+            selectedFile = File("export.csv")
+        }
+        if (chooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
+            val file = chooser.selectedFile
+            val success = CsvExporter.export(data, file)
+            if (success) {
+                JOptionPane.showMessageDialog(this, "已导出到: ${file.absolutePath}", "导出成功", JOptionPane.INFORMATION_MESSAGE)
+            } else {
+                JOptionPane.showMessageDialog(this, "导出失败", "导出错误", JOptionPane.ERROR_MESSAGE)
             }
-            col.prefWidth = 120.0
-            tableView.columns.add(col)
         }
     }
 }

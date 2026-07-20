@@ -1,12 +1,17 @@
 package io.github.yqy7.sqlui
 
 import io.github.yqy7.sqlui.view.MainWindow
-import javafx.application.Application
+import io.github.yqy7.sqlui.view.theme.FlatLafTheme
+import javax.swing.SwingUtilities
 
 /**
  * SQLui 应用入口。
- * 支持 H2 Database 和 SQLite 的数据库管理工具。
+ * 基于 Swing + FlatLaf 的桌面数据库管理工具。
+ * 支持 H2 Database 和 SQLite。
  */
-fun main(args: Array<String>) {
-    Application.launch(MainWindow::class.java, *args)
+fun main() {
+    FlatLafTheme.setup()
+    SwingUtilities.invokeLater {
+        MainWindow().isVisible = true
+    }
 }
